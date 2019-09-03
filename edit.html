@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Create a Web Map</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="stylesheet" href="https://js.arcgis.com/3.29/dijit/themes/claro/claro.css">
+  <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/3.16/esri/css/esri.css">
+  <style>
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #header {
+      border: solid 2px #462d44;
+      background: #fff;
+      color: #444;
+      -moz-border-radius: 4px;
+      border-radius: 4px;
+      font-family: sans-serif;
+      font-size: 1.1em;
+      padding-left: 20px;
+    }
+
+    #mapDiv {
+      padding: 1px;
+      border: solid 2px #444;
+      -moz-border-radius: 4px;
+      border-radius: 4px;
+    }
+
+    #rightPane {
+      border: none;
+      padding: 0;
+      width: 228px;
+    }
+
+    #leftPane {
+      border: none;
+      padding: 0;
+      width: 228px;
+      border: solid 2px #444;
+      text-align: center;
+      -moz-border-radius: 4px;
+      border-radius: 4px;
+    }
+
+    #mes {
+      border: none;
+      padding: 1;
+      width: 212px;
+      height: 250px;
+      border: solid 2px #444;
+      text-align: center;
+      -moz-border-radius: 4px;
+      border-radius: 4px;
+      margin: auto;
+    }
+
+    .templatePicker {
+      border: solid 2px #444;
+    }
+
+    .btn {
+      width: 200px;
+    }
+
+    .txt {
+      width: 200px;
+    }
+  </style>
+
+  <script>
+    var dojoConfig = {
+      parseOnLoad: true
+    };
+  </script>
+  <script src="https://js.arcgis.com/3.16compact/"></script>
+  <script>
+    var map;
+    require([
+      "esri/map",
+      "esri/SpatialReference",
+      "esri/InfoTemplate",
+      "esri/graphic",
+      "esri/config",
+
+      "esri/layers/ArcGISDynamicMapServiceLayer",
+      "esri/layers/GraphicsLayer",
+      "esri/layers/FeatureLayer",
+
+      "esri/geometry/Point",
+      "esri/geometry/Extent",
+      "esri/geometry/webMercatorUtils",
+
+      "esri/symbols/PictureMarkerSymbol",
+      "esri/symbols/SimpleMarkerSymbol",
+      "esri/symbols/SimpleLineSymbol",
+      "esri/symbols/SimpleFillSymbol",
+
+      "esri/toolbars/draw",
+      "esri/toolbars/edit",
+
+      "esri/renderers/HeatmapRenderer",
+
+      "esri/dijit/editing/TemplatePicker",
+
+      "dojo/_base/array",
+      "dojo/_base/event",
+      "dojo/_base/lang",
+      "dojo/parser",
+      "dojo/dom",
+      "dijit/registry",
+
+      "dijit/layout/BorderContainer", "dijit/layout/ContentPane",
+      "dijit/form/Button", "dojo/domReady!"
+    ], function (
+      Map,
+      SpatialReference,
+      InfoTemplate,
+      Graphic,
+      esriConfig,
+
+      ArcGISDynamicMapServiceLayer,
+      GraphicsLayer,
+      FeatureLayer,
+
+      Point,
+      Extent,
+      webMercatorUtils,
+
+      PictureMarkerSymbol, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol,
+
+      Draw,
+      Edit,
+
+      HeatmapRenderer,
+
+      TemplatePicker,
+
+      arrayUtils,
+      event,
+      lang,
+      parser,
+      dom,
+      registry
+
+    ) {
+      parser.parse(); //dojo的模板
+
+      //代理页面，当编辑时需要传递大量数据通过PROXY
+      //esriConfig.defaults.io.proxyUrl = "/proxy/";
+      //esriConfig.defaults.geometryService = new esri.tasks.GeometryService("https://utility.arcgisonline.com/ArcGIS/rest/services/Geometry/GeometryServer");      
+
+      //地图容器的声明
+      map = new esri.Map("mapDiv", {
+        extent: new Extent(12793283.924, 2980975.209, 12796283.924, 2981175.209, new SpatialReference({
+          wkid: 102100
+        }))
+      });
+
+      //添加地图编辑事件
+      map.on("layers-add-result", initEditing);
+
+      //底图的添加
+      var layer = new ArcGISDynamicMapServiceLayer(
+        "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+      map.addLayer(layer);
+
+      //bt1 垃圾桶的分布
+      dom.byId("btn1").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var zzlayer1 = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0");
+        map.addLayer(zzlayer1);
+        // var zzlayer2 = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/1");
+        // map.addLayer(zzlayer2);
+        dom.byId("mes").innerHTML = "<p>显示垃圾桶分布</p>"
+      };
+
+      //bt2 热力图
+      dom.byId("btn2").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var infoContentDesc = "<p>此垃圾桶编号为${OBJECTID}</p>";
+        var infoContentDetails = "重量为${weight}";
+        var infoContent = infoContentDesc + infoContentDetails;
+        var infoTemplate = new InfoTemplate("Accident details", infoContent);
+
+        var serviceURL = "http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0";
+        var heatmapFeatureLayerOptions = {
+          mode: FeatureLayer.MODE_SNAPSHOT, //要素图层的查询模式
+          infoTemplate: infoTemplate,
+          outFields: [
+            "OBJECTID",
+            "weight"
+          ] //返回图层中的字段
+        };
+        //热力图图层和渲染器
+        var heatmapFeatureLayer = new FeatureLayer(serviceURL, heatmapFeatureLayerOptions);
+        var heatmapRenderer = new HeatmapRenderer({
+          field: "weight",
+          colors: ["rgba(0, 0, 255, 0)", "rgb(0, 0, 255)", "rgb(255, 0, 255)", "rgb(255, 0, 0)"],
+          blurRadius: 12,
+          maxPixelIntensity: 100,
+          minPixelIntensity: 5
+        });
+        heatmapFeatureLayer.setRenderer(heatmapRenderer);
+        map.addLayer(heatmapFeatureLayer);
+        var zzlayer = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0");
+        map.addLayer(zzlayer);
+        var zzlayer = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/1");
+        map.addLayer(zzlayer);
+        dom.byId("mes").innerHTML = "<p>显示垃圾桶热力图分布，根据垃圾桶属性weight 点击可以显示具体数据</p>"
+      };
+
+      //bt3 运输轨迹回放
+      dom.byId("btn3").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var zzlayer1 = new FeatureLayer("http://localhost:6080/arcgis/rest/services/feature/FeatureServer/1");
+        map.addLayer(zzlayer1); //线图层
+        var layer1 = esri.layers.GraphicsLayer();
+        map.addLayer(layer1);
+
+        console.log(zzlayer1);
+        console.log(zzlayer1.graphics);
+        console.log(zzlayer1.graphics[0]);
+        //声明变量清空
+        var isPos = false;
+        var posList = [];
+        var index = 0;
+        var intvaltime = 0;
+        var lineLayer;
+        var carLayer;
+        var carSymbol;
+        var carurl = "download.png";
+        lineLayer = new esri.layers.GraphicsLayer("lineLayer");
+        map.addLayer(lineLayer);
+
+        carLayer = new esri.layers.GraphicsLayer("carLayer");
+        map.addLayer(carLayer);
+
+        carSymbol = new esri.symbol.PictureMarkerSymbol(carurl, 55, 36);
+        posList.push({
+          x: 12793777.758,
+          y: 2981439.223
+        })
+        posList.push({
+          x: 12794345.026,
+          y: 2981255.073
+        })
+        posList.push({
+          x: 12794410.643,
+          y: 2981483.673
+        })
+        posList.push({
+          x: 12794546.110,
+          y: 2981769.424
+        })
+        //console.log(posList);
+        //画点
+        for (let index = 0; index < posList.length; index++) {
+          var point = new Point(posList[index].x, posList[index].y, new SpatialReference({
+            wkid: 102100
+          }));
+          var symbol = new esri.symbol.PictureMarkerSymbol('download.png', 39, 25);
+          symbol.setOffset(10, 12.5);
+          var graphic = new esri.Graphic(point, symbol);
+          layer1.add(graphic);
+        }
+
+
+        var playTimer;
+        var timer;
+
+        function trajRun(posList, isLine) { //轨迹回放源方法
+          var speed = 10;
+          var speed2 = 40;
+          var carIndex = 0;
+
+          lineLayer.clear();
+          carLayer.clear();
+          if (timer) clearTimeout(timer);
+          if (playTimer) clearTimeout(playTimer); //清除上一次运行的轨迹，与时间等设置
+          //划线
+
+          //循环读取posList中的x,y坐标 并生成点存与path数组中
+          function drowPolyline() {
+            //清除之前绘制
+            lineLayer.clear();
+            var path = [];
+            for (var i = 0, len = posList.length; i < len; i++) {
+              var point = [posList[i].x, posList[i].y];
+              path.push(point);
+            }
+
+            // 生成绘制的图形
+            var polylineJson = {
+              "paths": [path],
+              "spatialReference": {
+                "wkid": 102100
+              }
+            };
+            var polyline = new esri.geometry.Polyline(polylineJson);
+            var graphic = new esri.Graphic({
+              "geometry": polyline,
+              "symbol": {
+                "color": [0, 0, 0, 0],
+                "outline": {
+                  "color": [255, 0, 0, 255],
+                  "width": 2,
+                  "type": "esriSLS",
+                  "style": "esriSLSSolid"
+                },
+                "type": "esriSFS",
+                "style": "esriSFSSolid"
+              }
+            });
+            lineLayer.add(graphic);
+          }
+
+          /**
+           * 图片运动
+           */
+
+          function runStart() {
+            if (posList.length == 0) {
+              return false;
+            }
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(function () {
+              if (index == posList.length - 1) {
+                if (timer) clearTimeout(timer);
+              } else {
+                var p1 = posList[index];
+                var p2 = posList[++index];
+                //console.log(p1);
+                //console.log(p2);
+                var tempPoints = interpolation(p1, p2, speed); //调用方法插值
+                var angle = Math.ceil(Angle(p1.x, p1.y, p2.x, p2.y))
+                carSymbol.setAngle(angle) //设置小车角度
+                // console.log(angle);
+                if (Math.abs(angle) >= 80 && Math.abs(angle) <= 100) {
+                  if (angle < 0) {
+                    carSymbol.setOffset(-17.5, 0);
+                  } else {
+                    carSymbol.setOffset(17.5, 0);
+                  }
+                } else if (Math.abs(angle) >= 90) {
+                  carSymbol.setOffset(0, -18);
+                } else {
+                  carSymbol.setOffset(0, 18);
+                }
+                carIndex = 0;
+                play(tempPoints);
+
+                intvaltime = tempPoints.length * speed2;
+                if (index < posList.length - 1) {
+                  runStart();
+                }
+              }
+            }, intvaltime);
+          }
+          /**
+           *经纬度转墨卡托
+           */
+          function changePosXY(pt) {
+            var lnglat = webMercatorUtils.lngLatToXY(pt.lng, pt.lat);
+            return {
+              x: lnglat[0],
+              y: lnglat[1]
+            };
+          }
+          /**
+           *墨卡托转经纬度
+           */
+          function changePosPoint(pt) {
+            var lnglat = webMercatorUtils.xyToLngLat(pt.x, pt.y);
+            return {
+              lng: lnglat[0],
+              lat: lnglat[1]
+            };
+          }
+          /**
+           * 根据回放速度在两点之间进行插值
+           */
+          function interpolation(pointA, pointB, speed) {
+            var tmp = [];
+            if (speed == undefined) {
+              speed = 2;
+            }
+            var count = Math.abs(speed);
+
+            var x1 = Math.abs(pointB.x - pointA.x);
+            var y1 = Math.abs(pointB.y - pointA.y);
+            var z1 = Math.sqrt(x1 * x1 + y1 * y1);
+            count = z1 / count;
+
+            var disX = (pointB.x - pointA.x) / count;
+            var disY = (pointB.y - pointA.y) / count;
+            var i = 0;
+            while (i <= count) {
+              var x = pointA.x + i * disX;
+              var y = pointA.y + i * disY;
+              tmp.push({
+                x: x,
+                y: y
+              });
+              i++;
+            }
+            tmp.push(pointB); //防止插值出来的最后一个点到不了B点
+            return tmp;
+          }
+          /*
+           *计算图片的角度
+           */
+          function Angle(startx, starty, endx, endy) {
+            var tan = 0
+            if (endx == startx) {
+              tan = Math.atan(0) * 180 / Math.PI
+            } else {
+              tan = Math.atan(Math.abs((endy - starty) / (endx - startx))) * 180 / Math.PI;
+            }
+
+            if (endx >= startx && endy >= starty) //第一象限
+            {
+              return -tan;
+            } else if (endx > startx && endy < starty) //第四象限
+            {
+              return tan;
+            } else if (endx < startx && endy > starty) //第二象限
+            {
+              return tan - 180;
+            } else {
+              return 180 - tan; //第三象限
+            }
+          }
+          /**
+           * 播放
+           */
+          function play(tmpPoints) {
+            if (playTimer) clearTimeout(playTimer);
+            playTimer = setTimeout(function () {
+              if (carIndex < tmpPoints.length - 1) {
+                carLayer.clear();
+                var point = tmpPoints[carIndex + 1];
+                point = new Point(point.x, point.y, new SpatialReference({
+                  wkid: 102100
+                }));
+                var carGriphic = new esri.Graphic(point, carSymbol);
+                carLayer.add(carGriphic);
+                carIndex++;
+                play(tmpPoints);
+              } else {
+                carIndex = 0;
+                clearTimeout(playTimer);
+              }
+            }, speed2);
+          }
+
+          if (isLine) {
+            drowPolyline(); //转化数组
+          }
+          runStart(); //调用上面的方法
+        };
+
+        // //调用绘制方法
+        if (posList.length > 0) { //当数组不为空的时候开始 轨迹回放
+          trajRun(posList, true);
+        }
+        dom.byId("mes").innerHTML = "<p>显示垃圾车运输轨道</p>"
+      };
+
+      //bt4 任务调配
+      dom.byId("btn4").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var zzlayer = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0");
+        map.addLayer(zzlayer);
+        //要素服务图层
+        var fLayerPoint = new FeatureLayer(
+          "http://localhost:6080/arcgis/rest/services/feature/FeatureServer/0", {
+            mode: FeatureLayer.MODE_SNAPSHOT,
+            outFields: ["*"]
+          });
+        var fLayerLine = new FeatureLayer(
+          "http://localhost:6080/arcgis/rest/services/feature/FeatureServer/1", {
+            mode: FeatureLayer.MODE_SNAPSHOT,
+            outFields: ["*"]
+          });
+        var fLayerPolygon = new FeatureLayer(
+          "http://localhost:6080/arcgis/rest/services/feature/FeatureServer/2", {
+            mode: FeatureLayer.MODE_SNAPSHOT,
+            outFields: ["*"]
+          });
+        map.addLayers([fLayerPoint, fLayerLine, fLayerPolygon]);
+        dom.byId("mes").innerHTML = "<p>在线绘制要素，ctrl可删除</p>"
+      };
+
+      //bt5 垃圾站点设置决策
+      dom.byId("btn5").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var zzlayer = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0");
+        map.addLayer(zzlayer);
+        var zzlayer = new FeatureLayer("http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/1");
+        map.addLayer(zzlayer);
+        var infoContentDesc = "<p>此垃圾桶编号为${OBJECTID}</p>";
+        var infoContentDetails = "重量为${weight}";
+        var infoContent = infoContentDesc + infoContentDetails;
+        var infoTemplate = new InfoTemplate("Accident details", infoContent);
+
+        var serviceURL = "http://localhost:6080/arcgis/rest/services/gz_line/FeatureServer/0";
+        var heatmapFeatureLayerOptions = {
+          mode: FeatureLayer.MODE_SNAPSHOT, //要素图层的查询模式
+          infoTemplate: infoTemplate,
+          outFields: [
+            "OBJECTID",
+            "weight"
+          ] //返回图层中的字段
+        };
+        //热力图图层和渲染器
+        var heatmapFeatureLayer = new FeatureLayer(serviceURL, heatmapFeatureLayerOptions);
+        var heatmapRenderer = new HeatmapRenderer({
+          colors: ["rgba(0, 0, 255, 0)", "rgb(0, 0, 255)", "rgb(255, 0, 255)", "rgb(255, 0, 0)"],
+          blurRadius: 12,
+          maxPixelIntensity: 100,
+          minPixelIntensity: 5
+        });
+        heatmapFeatureLayer.setRenderer(heatmapRenderer);
+        map.addLayer(heatmapFeatureLayer);
+        dom.byId("mes").innerHTML = "<p>根据垃圾桶分布数量产生热力图，得出垃圾桶分布的状态</p>"
+      };
+
+      //bt6 条件选择
+      dom.byId("btn6").onclick = function () {
+        map.removeAllLayers(); //移除所有图层
+        var zzlayer = new ArcGISDynamicMapServiceLayer(
+          "http://map.geoq.cn/arcgis/rest/services/ChinaOnlineCommunity/MapServer");
+        map.addLayer(zzlayer);
+        var zzlayer3 = new ArcGISDynamicMapServiceLayer(
+          "http://localhost:6080/arcgis/rest/services/gz_line/MapServer");
+        map.addLayer(zzlayer3);
+        var layerDefinitions = [];
+        var txt = dom.byId("txt").value;
+        console.log(txt);
+        layerDefinitions[0] = "weight >" + txt;
+        zzlayer3.setLayerDefinitions(layerDefinitions);
+      };
+
+      //标注图层
+      var glayer = new GraphicsLayer();
+      map.addLayer(glayer);
+
+      var point1 = new Point(12793567.414, 2981456.091, new SpatialReference({
+        wkid: 102100
+      }));
+      var sym = new PictureMarkerSymbol("back.png", 30, 30);
+      var tem = new InfoTemplate('标题:${name}', '内容:${content}');
+      var attribute = {
+        name: '垃圾回收站',
+        content: '赣州章贡区'
+      };
+      var gra = new Graphic(point1, sym, attribute, tem);
+      glayer.add(gra);
+
+      //编辑地图的方法
+      function initEditing(evt) {
+        // console.log("initEditing", evt);
+        // var map = this;
+        var currentLayer = null;
+        var layers = arrayUtils.map(evt.layers, function (result) {
+          return result.layer;
+        });
+        //console.log("layers", layers);
+
+        var editToolbar = new Edit(map);
+        editToolbar.on("deactivate", function (evt) {
+          currentLayer.applyEdits(null, [evt.graphic], null);
+        });
+
+        arrayUtils.forEach(layers, function (layer) {
+          var editingEnabled = false;
+          layer.on("dbl-click", function (evt) {
+            event.stop(evt);
+            if (editingEnabled === false) {
+              editingEnabled = true;
+              editToolbar.activate(Edit.EDIT_VERTICES, evt.graphic);
+            } else {
+              currentLayer = this;
+              editToolbar.deactivate();
+              editingEnabled = false;
+            }
+          });
+
+          layer.on("click", function (evt) {
+            event.stop(evt);
+            if (evt.ctrlKey === true || evt.metaKey === true) { //delete feature if ctrl key is depressed
+              layer.applyEdits(null, null, [evt.graphic]);
+              currentLayer = this;
+              editToolbar.deactivate();
+              editingEnabled = false;
+            }
+          });
+        });
+
+        var templatePicker = new TemplatePicker({
+          featureLayers: layers,
+          rows: "auto",
+          columns: 2,
+          grouping: true,
+          style: "height: auto; overflow: auto;"
+        }, "templatePickerDiv");
+
+        templatePicker.startup();
+
+        var drawToolbar = new Draw(map);
+
+        var selectedTemplate;
+        templatePicker.on("selection-change", function () {
+          if (templatePicker.getSelected()) {
+            selectedTemplate = templatePicker.getSelected();
+          }
+          switch (selectedTemplate.featureLayer.geometryType) {
+            case "esriGeometryPoint":
+              drawToolbar.activate(Draw.POINT);
+              break;
+            case "esriGeometryPolyline":
+              drawToolbar.activate(Draw.POLYLINE);
+              break;
+            case "esriGeometryPolygon":
+              drawToolbar.activate(Draw.POLYGON);
+              break;
+          }
+        });
+
+        drawToolbar.on("draw-end", function (evt) {
+          drawToolbar.deactivate();
+          editToolbar.deactivate();
+          var newAttributes = lang.mixin({}, selectedTemplate.template.prototype.attributes);
+          var newGraphic = new Graphic(evt.geometry, null, newAttributes);
+          selectedTemplate.featureLayer.applyEdits([newGraphic], null, null);
+        });
+      }
+    });
+  </script>
+</head>
+
+<body class="claro">
+  <div data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="gutters:true, design:'headline'"
+    style="width:100%;height:100%;">
+    <div data-dojo-type="dijit/layout/ContentPane" id="header" data-dojo-props="region:'top'">智慧环卫城市 </div>
+    <div id="leftPane" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'left'">
+      <button id="btn1" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">垃圾桶分布</div>
+      </button><br>
+      <button id="btn2" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">热力图</div>
+      </button><br>
+      <button id="btn3" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">运输轨迹回放</div>
+      </button><br>
+      <button id="btn4" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">任务调配</div>
+      </button><br>
+      <button id="btn5" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">垃圾站点设置决策</div>
+      </button><br>
+      <input type="text" id="txt"><br>
+      <button id="btn6" type="button" data-dojo-type="dijit/form/Button">
+        <div class="btn">条件查询</div>
+      </button><br>
+      <p>
+        <div id="mes">
+        </div>
+      </p>
+    </div>
+    <div id="mapDiv" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'"></div>
+    <div id="rightPane" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'right'">
+      <div id="templatePickerDiv"></div>
+    </div>
+  </div>
+</body>
+
+</html>
